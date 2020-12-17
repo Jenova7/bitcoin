@@ -123,7 +123,6 @@ static bool GenerateBlock(ChainstateManager& chainman, CBlock& block, uint64_t& 
         --max_tries;
         if ((block.nNonce & 0x1ffff) == 0)
             block.nTime = std::max((int64_t)block.nTime, GetAdjustedTime());
-            //UpdateTime(&block, consensusParams, ::ChainActive().Tip());
     }
     if (max_tries == 0 || ShutdownRequested()) {
         return false;

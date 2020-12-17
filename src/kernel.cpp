@@ -423,7 +423,11 @@ bool GetKernelStakeModifier(const CBlockIndex* pindexPrev, const uint256& hashBl
     // Peercoin stake modifier selection for kernel
     if ((unsigned)(pindexPrev->nHeight+1) >= params.nMinerConfirmationWindow && GetKernelStakeModifierV05(pindexPrev, nTimeTx, params, nStakeModifier, nStakeModifierHeight, nStakeModifierTime, fPrintProofOfStake)) //IsProtocolV05(nTimeTx)
         return true;
-    else if (Params().NetworkIDString() != CBaseChainParams::REGTEST) {
+    else if (Params().NetworkIDString() == CBaseChainParams::REGTEST && GetKernelStakeModifierV03(pindexPrev, hashBlockFrom, params, nStakeModifier, nStakeModifierHeight, nStakeModifierTime, fPrintProofOfStake)) {
+        // This is only here for backwards compatibility with very old PIVX forks; it should not be used in new production code due to the
+        // stake grinding vulnerability (it can be replaced by hard coded or bypassed modifiers on old blocks when it is no longer being used)
+        return true;
+    } else {
         if (pindexPrev->UsesStakeModifierV2())
             nStakeModifierV2 = pindexPrev->nStakeModifierV2;
         else
@@ -431,10 +435,6 @@ bool GetKernelStakeModifier(const CBlockIndex* pindexPrev, const uint256& hashBl
         nStakeModifierHeight = pindexPrev->nHeight;
         nStakeModifierTime = pindexPrev->GetBlockTime();
         return true;
-    } else {
-        // This is only here for backwards compatibility with very old PIVX forks; it should not be used in new production code due to the
-        // stake grinding vulnerability (it can be replaced by hard coded or bypassed modifiers on old blocks when it is no longer being used)
-        return GetKernelStakeModifierV03(pindexPrev, hashBlockFrom, params, nStakeModifier, nStakeModifierHeight, nStakeModifierTime, fPrintProofOfStake);
     }
 }
 

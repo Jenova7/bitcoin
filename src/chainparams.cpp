@@ -25,7 +25,7 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vin[0].scriptSig = CScript() /* << OP_0 */ << 486604799 /* nBits */ << CScriptNum(4) /* OP_4 */ << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
@@ -230,7 +230,7 @@ public:
         consensus.nPowTargetSpacing = 64; // 64-second block spacing - must be divisible by nStakeTimestampMask
         consensus.nStakeTimestampMask = 0xf; // 16 second time slots
         consensus.nStakeMinDepth = 100;
-        consensus.nStakeMinAge = 2 * 60 * 60; // test net min age is 2 hours
+        consensus.nStakeMinAge = 2 * 60 * 60; // testnet min age is 2 hours
         consensus.nStakeMaxAge = 30 * 24 * 60 * 60; // 30 days
         consensus.nModifierInterval = 1 * 60; // Modifier interval: time to elapse before new modifier is computed
         consensus.fPowAllowMinDifficultyBlocks = true;
@@ -441,7 +441,7 @@ public:
         consensus.nBudgetPaymentsStartBlock = std::numeric_limits<int>::max();
         consensus.nPoSStartBlock = 0;
         consensus.nLastPoWBlock = std::numeric_limits<int>::max();
-        consensus.nTreasuryPaymentsStartBlock = 200;
+        consensus.nTreasuryPaymentsStartBlock = 30;
         consensus.BIP16Exception = uint256();
         consensus.BIP34Height = 500; // BIP34 activated on regtest (Used in functional tests)
         consensus.BIP34Hash = uint256();
@@ -456,14 +456,14 @@ public:
         consensus.nPowTargetSpacing = 32; // 32-second block spacing - must be divisible by nStakeTimestampMask
         consensus.nStakeTimestampMask = 0x3; // 4 second time slots
         consensus.nStakeMinDepth = 0;
-        consensus.nStakeMinAge = 2 * 60 * 60; // test net min age is 2 hours
+        consensus.nStakeMinAge = 1 * 60; // regtest min age is 1 minute
         consensus.nStakeMaxAge = 30 * 24 * 60 * 60; // 30 days
         consensus.nModifierInterval = 1 * 60; // Modifier interval: time to elapse before new modifier is computed
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
         consensus.nRuleChangeActivationThreshold = (24 * 60 * 60 * 75) / (100 * consensus.nPowTargetSpacing); // 75% for testchains
         consensus.nMinerConfirmationWindow = 24 * 60 * 60 / consensus.nPowTargetSpacing; // Faster than normal for regtest (one day instead of one week)
-        consensus.nTreasuryPaymentsCycleBlocks = 24 * 6 * 60 / consensus.nPowTargetSpacing; // Ten times per day
+        consensus.nTreasuryPaymentsCycleBlocks = 20;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 0;
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;

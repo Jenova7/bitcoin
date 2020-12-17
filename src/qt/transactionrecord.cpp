@@ -47,6 +47,7 @@ QList<TransactionRecord> TransactionRecord::decomposeTransaction(const interface
                 if (wtx.txout_address_is_mine[i])
                     sub.address = EncodeDestination(wtx.txout_address[i]);
                 sub.involvesWatchAddress = mine & ISMINE_WATCH_ONLY;
+                sub.idx = i; // vout index
             }
         }
 
