@@ -453,7 +453,7 @@ public:
         consensus.powLimit[CBlockHeader::ALGO_POS] = uint256S("7fffff0000000000000000000000000000000000000000000000000000000000"); // 0x207fffff
         consensus.powLimit[CBlockHeader::ALGO_POW_SHA256] = uint256S("7fffff0000000000000000000000000000000000000000000000000000000000"); // 0x207fffff
         consensus.nPowTargetTimespan = 1 * 60 * 60; // 1 hour
-        consensus.nPowTargetSpacing = 32; // 32-second block spacing - must be divisible by nStakeTimestampMask
+        consensus.nPowTargetSpacing = 64; // 64-second block spacing - must be divisible by nStakeTimestampMask
         consensus.nStakeTimestampMask = 0x3; // 4 second time slots
         consensus.nStakeMinDepth = 0;
         consensus.nStakeMinAge = 1 * 60; // regtest min age is 1 minute
