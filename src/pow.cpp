@@ -12,6 +12,8 @@
 #include <primitives/block.h>
 #include <uint256.h>
 
+#include <atomic>
+
 // peercoin: find last block index up to pindex
 static inline const CBlockIndex* GetLastBlockIndex(const CBlockIndex* pindex, const bool fProofOfStake)
 {
@@ -29,7 +31,7 @@ static inline const CBlockIndex* GetLastBlockIndexForAlgo(const CBlockIndex* pin
 
 static inline const CBlockIndex* GetASERTReferenceBlockAndHeightForAlgo(const CBlockIndex* pindex, const uint32_t& nProofOfWorkLimit, const int& nASERTStartHeight, const int& algo, uint32_t& nBlocksPassed)
 {
-    nBlocksPassed = 0;
+    nBlocksPassed = 1; // Account for the ASERT reference block here
     while (pindex && pindex->pprev && pindex->nHeight >= nASERTStartHeight) {
         const CBlockIndex* pprev = GetLastBlockIndexForAlgo(pindex->pprev, algo);
         if (pprev)
@@ -184,6 +186,19 @@ unsigned int WeightedTargetExponentialMovingAverage(const CBlockIndex* pindexLas
     return bnNew.GetCompactRounded();
 }
 
+static inline void Arith256ToAtomic(const arith_uint256& arith, std::atomic<uint64_t>& first, std::atomic<uint64_t>& second, std::atomic<uint64_t>& third, std::atomic<uint64_t>& fourth)
+{
+    first.store(arith.GetLow64());
+    second.store((arith >> 64).GetLow64());
+    third.store((arith >> 128).GetLow64());
+    fourth.store((arith >> 192).GetLow64());
+}
+
+static inline void AtomicToArith256(arith_uint256& arith, const std::atomic<uint64_t>& first, const std::atomic<uint64_t>& second, const std::atomic<uint64_t>& third, const std::atomic<uint64_t>& fourth)
+{
+    arith = arith_uint256(first.load()) | (arith_uint256(second.load()) << 64) | (arith_uint256(third.load()) << 128) | (arith_uint256(fourth.load()) << 192);
+}
+
 unsigned int AverageTargetASERT(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
     const int algo = CBlockHeader::GetAlgo(pblock->nVersion);
@@ -217,22 +232,31 @@ unsigned int AverageTargetASERT(const CBlockIndex* pindexLast, const CBlockHeade
 
     uint32_t nBlocksPassed = 0;
     const CBlockIndex* pindexReferenceBlock = GetASERTReferenceBlockAndHeightForAlgo(pindexPrev, nProofOfWorkLimit, nASERTStartHeight, algo, nBlocksPassed);
-    const int64_t nTimeDiff = pindexPrev->GetBlockTime() - pindexReferenceBlock->GetBlockTime();
+    const CBlockIndex* pindexReferenceBlockPrev = algo == -1 ? GetLastBlockIndex(pindexReferenceBlock->pprev, fProofOfStake) : GetLastBlockIndexForAlgo(pindexReferenceBlock->pprev, algo);
+    // Use reference block's parent block's timestamp unless it is the genesis (not using the prev timestamp here would put us permanently one block behind schedule)
+    const int64_t nTimeDiff = pindexPrev->GetBlockTime() - (pindexReferenceBlockPrev ? pindexReferenceBlockPrev->GetBlockTime() : (pindexReferenceBlock->GetBlockTime() - nTargetSpacing));
     //LogPrintf("pindexReferenceBlock->GetBlockHash() = %s\n", pindexReferenceBlock->GetBlockHash().ToString().c_str());
     //LogPrintf("nBlocksPassed = %u\n", nBlocksPassed);
-    //LogPrintf("pindexPrev->nHeight - pindexReferenceBlock->nHeight = %u\n", pindexPrev->nHeight - pindexReferenceBlock->nHeight);
-    //assert(nBlocksPassed == (uint32_t)pindexPrev->nHeight - pindexReferenceBlock->nHeight);
-    const uint32_t nHeightDiff = nBlocksPassed; //pindexPrev->nHeight - pindexReferenceBlock->nHeight;
+    //LogPrintf("pindexPrev->nHeight + 1 - pindexReferenceBlock->nHeight = %u\n", pindexPrev->nHeight + 1 - pindexReferenceBlock->nHeight);
+    //assert(nBlocksPassed == (uint32_t)pindexPrev->nHeight + 1 - pindexReferenceBlock->nHeight);
+    const uint32_t nHeightDiff = nBlocksPassed; //pindexPrev->nHeight + 1 - pindexReferenceBlock->nHeight;
     arith_uint256 refBlockTarget;
 
     // We don't want to recalculate the average of several days' worth of block targets here every single time, so instead we cache the average and start height
     const bool fUseCache = true;
-    static arith_uint256 refBlockTargetCache;
-    static int nTargetCacheHeight = -1;
-    static int nTargetCacheAlgo = CBlockHeader::ALGO_COUNT;
+    arith_uint256 refBlockTargetCache;
+    // For lack of a better way to store an atomic uint256 at the moment
+    static std::atomic<uint64_t> targetCacheOne{0};
+    static std::atomic<uint64_t> targetCacheTwo{0};
+    static std::atomic<uint64_t> targetCacheThree{0};
+    static std::atomic<uint64_t> targetCacheFour{0};
+    static std::atomic_int nTargetCacheHeight{-1};
+    static std::atomic_int nTargetCacheAlgo{CBlockHeader::ALGO_COUNT};
+    if (fUseCache)
+        AtomicToArith256(refBlockTargetCache, targetCacheOne, targetCacheTwo, targetCacheThree, targetCacheFour);
 
     if (nASERTBlockTargetsToAverage && nHeight >= nASERTStartHeight + nASERTBlockTargetsToAverage && nHeightDiff >= nASERTBlockTargetsToAverage) {
-        if (!fUseCache || nTargetCacheHeight != (int)(nHeightDiff / nASERTBlockTargetsToAverage) || nTargetCacheAlgo != algo || refBlockTargetCache == arith_uint256() || algo == -1) {
+        if (!fUseCache || nTargetCacheHeight.load() != (int)(nHeightDiff / nASERTBlockTargetsToAverage) || nTargetCacheAlgo.load() != algo || refBlockTargetCache == arith_uint256() || algo == -1) {
             const uint32_t nBlocksToSkip = nHeightDiff % nASERTBlockTargetsToAverage;
             const CBlockIndex* pindex = pindexPrev;
             //LogPrintf("nBlocksToSkip = %u\n", nBlocksToSkip);
@@ -242,22 +266,28 @@ unsigned int AverageTargetASERT(const CBlockIndex* pindexLast, const CBlockHeade
             }
             //LogPrintf("begin pindex->nHeight = %i\n", pindex->nHeight);
 
+            //unsigned int nBlocksAveraged = 0;
             for (unsigned int i = 0; i < nASERTBlockTargetsToAverage; i++) {
                 if (pindex->nBits != (nProofOfWorkLimit - 1) || !params.fPowAllowMinDifficultyBlocks) { // Don't add min difficulty targets to the average
                     arith_uint256 bnTarget = arith_uint256().SetCompact(pindex->nBits);
                     refBlockTarget += bnTarget / nASERTBlockTargetsToAverage;
-                } //else
-                    //i--; // Average one more block to make up for the one we skipped
+                    //nBlocksAveraged++;
+                    //if (pindex->GetBlockHash() == params.hashGenesisBlock)
+                        //LogPrintf("Averaging genesis block target\n");
+                } else
+                    i--; // Average one more block to make up for the one we skipped
                 pindex = algo == -1 ? GetLastBlockIndex(pindex->pprev, fProofOfStake) : GetLastBlockIndexForAlgo(pindex->pprev, algo);
                 if (!pindex)
                     break;
             }
+            //LogPrintf("nBlocksAveraged = %u\n", nBlocksAveraged);
+            //assert(nBlocksAveraged == nASERTBlockTargetsToAverage);
             //if (pindex)
                 //LogPrintf("end pindex->nHeight = %i\n", pindex->nHeight);
             if (fUseCache) {
-                refBlockTargetCache = refBlockTarget;
-                nTargetCacheHeight = nHeightDiff / nASERTBlockTargetsToAverage;
-                nTargetCacheAlgo = algo;
+                Arith256ToAtomic(refBlockTarget, targetCacheOne, targetCacheTwo, targetCacheThree, targetCacheFour);
+                nTargetCacheHeight.store(nHeightDiff / nASERTBlockTargetsToAverage);
+                nTargetCacheAlgo.store(algo);
                 //LogPrintf("Set average target cache at nHeight = %u with algo = %i\n", nHeight, algo);
             }
         } else {
@@ -266,10 +296,11 @@ unsigned int AverageTargetASERT(const CBlockIndex* pindexLast, const CBlockHeade
         }
     } else {
         if (fUseCache && algo != -1) {
-            if (nTargetCacheAlgo != algo || refBlockTargetCache == arith_uint256()) {
+            if (nTargetCacheAlgo.load() != algo || refBlockTargetCache == arith_uint256()) {
                 refBlockTargetCache = arith_uint256().SetCompact(pindexReferenceBlock->nBits);
-                nTargetCacheHeight = -1;
-                nTargetCacheAlgo = algo;
+                Arith256ToAtomic(refBlockTargetCache, targetCacheOne, targetCacheTwo, targetCacheThree, targetCacheFour);
+                nTargetCacheHeight.store(-1);
+                nTargetCacheAlgo.store(algo);
                 //LogPrintf("Set ref target cache at nHeight = %u with algo = %i\n", nHeight, algo);
             }
             refBlockTarget = refBlockTargetCache;
