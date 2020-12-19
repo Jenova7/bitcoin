@@ -5735,6 +5735,7 @@ bool CheckBlockSignature(const CBlock& block)
         const CTxIn& txin = block.vtx[1]->vin[0];
         pubkey = CPubKey(txin.scriptWitness.stack.back());
     }
+    //LogPrintf("%s : validating signature for %s output using pubkey %s\n", __func__, GetTxnOutputType(whichType), HexStr(pubkey));
 
     if (!pubkey.IsCompressed())
         return error("%s: invalid pubkey %s", __func__, HexStr(pubkey));

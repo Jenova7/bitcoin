@@ -4597,3 +4597,49 @@ ScriptPubKeyMan* CWallet::AddWalletDescriptor(WalletDescriptor& desc, const Flat
 
     return ret;
 }
+
+bool CWallet::SelectStakeCoins(std::set<CInputCoin>& setCoins)
+{
+    // Choose coins to use
+    CAmount nBalance = GetBalance().m_mine_trusted;
+    CAmount nValueIn = 0;
+    std::vector<COutput> vAvailableCoins;
+    CCoinControl temp;
+    CoinSelectionParams coin_selection_params;
+    coin_selection_params.use_bnb=false;
+    bool bnb_used;
+    AvailableCoins(vAvailableCoins, true, &temp, 1, MAX_MONEY, MAX_MONEY, 0);
+
+    if (!SelectCoins(vAvailableCoins, nBalance, setCoins, nValueIn, temp, coin_selection_params, bnb_used))
+        return false;
+    if (setCoins.empty())
+        return false;
+
+    return true;
+}
+
+// peercoin: sign block
+bool CWallet::SignBlock(CBlock& block)
+{
+    std::vector<std::vector<unsigned char>> vSolutions;
+    const CTxOut& txout = block.IsProofOfStake() ? block.vtx[1]->vout[1] : block.vtx[0]->vout[0];
+    TxoutType whichType = Solver(txout.scriptPubKey, vSolutions);
+
+    // Sign
+    const std::vector<unsigned char>& vchPubKey = vSolutions[0];
+    CKey key;
+    if (whichType == TxoutType::PUBKEY) {
+        if (!GetLegacyScriptPubKeyMan()->GetKey(CKeyID(Hash160(vchPubKey)), key))
+            return false;
+        if (key.GetPubKey() != CPubKey(vchPubKey))
+            return false;
+    } else if (whichType == TxoutType::PUBKEYHASH || whichType == TxoutType::WITNESS_V0_KEYHASH) {
+        if (!GetLegacyScriptPubKeyMan()->GetKey(CKeyID(uint160(vchPubKey)), key))
+            return false;
+        if (Hash160(key.GetPubKey()) != uint160(vchPubKey))
+            return false;
+    } else {
+        return false;
+    }
+    return key.Sign(block.GetHash(), block.vchBlockSig, 0);
+}
