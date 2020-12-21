@@ -104,8 +104,8 @@ public:
         consensus.nPowTargetTimespan = 12 * 60 * 60; // 12 hours
         consensus.nPowTargetSpacing = 80; // 80-second block spacing - must be divisible by nStakeTimestampMask
         consensus.nStakeTimestampMask = 0xf; // 16 second time slots
-        consensus.nStakeMinDepth = 600;
-        consensus.nStakeMinAge = 12 * 60 * 60; // current minimum age for coin age is 12 hours
+        consensus.nStakeMinDepth = 101;
+        consensus.nStakeMinAge = 1 * 60 * 60; // current minimum age for coin age is 1 hour
         consensus.nStakeMaxAge = 30 * 24 * 60 * 60; // 30 days
         consensus.nModifierInterval = 1 * 60; // Modifier interval: time to elapse before new modifier is computed
         consensus.fPowAllowMinDifficultyBlocks = true;
