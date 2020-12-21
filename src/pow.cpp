@@ -224,7 +224,7 @@ unsigned int AverageTargetASERT(const CBlockIndex* pindexLast, const CBlockHeade
         return nProofOfWorkLimit; // second block
 
     const uint32_t nASERTStartHeight = 0;
-    const uint32_t nASERTBlockTargetsToAverage = 4 * params.nPowTargetTimespan / nTargetSpacing; // Average the past 2 days' worth of block targets
+    const uint32_t nASERTBlockTargetsToAverage = params.nPowTargetTimespan / nTargetSpacing; // Average the past 2 days' worth of block targets
 
     const uint32_t nHeight = pindexLast->nHeight + 1;
     if (nHeight < nASERTStartHeight)
