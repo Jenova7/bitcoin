@@ -194,8 +194,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     int nDescendantsUpdated = 0;
     addPackageTxs(nPackagesSelected, nDescendantsUpdated);
 
-    // Ensure that transactions are canonically ordered
-    std::sort(std::begin(pblocktemplate->entries) + (fProofOfStake ? 2 : 1),
+    // Ensure that transactions are canonically ordered - FIX ME: need to account for unconfirmed TX chains
+    /*std::sort(std::begin(pblocktemplate->entries) + (fProofOfStake ? 2 : 1),
             std::end(pblocktemplate->entries),
             [](const CBlockTemplateEntry &a, const CBlockTemplateEntry &b) -> bool {
                 const uint256 &txbHash = b.tx->GetHash();
@@ -206,8 +206,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
                         break;
                     }
                 }
-                return !txbIsInput && a.tx->GetWitnessHash() < b.tx->GetWitnessHash();
-            });
+                return !txbIsInput && UintToArith256(a.tx->GetWitnessHash()) < UintToArith256(b.tx->GetWitnessHash());
+            });*/
 
     // Copy all the transactions refs into the block
     pblock->vtx.reserve(pblocktemplate->entries.size());

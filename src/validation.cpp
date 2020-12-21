@@ -3815,7 +3815,7 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
                               : block.GetBlockTime();
 
     // Check that all transactions are canonically ordered and finalized
-    const bool fEnforceCTOR = true;
+    const bool fEnforceCTOR = false;
     const CTransaction *prevTx = nullptr;
     for (const auto &ptx : block.vtx) {
         const CTransaction &tx = *ptx;
@@ -3835,12 +3835,16 @@ static bool ContextualCheckBlock(const CBlock& block, BlockValidationState& stat
                         break;
                     }
                 }
-                if (!prevTxIsInput && txWitHash < prevTxWitHash) {
+                if (!prevTxIsInput && UintToArith256(txWitHash) < UintToArith256(prevTxWitHash)) {
                     return state.Invalid(BlockValidationResult::BLOCK_CONSENSUS, "tx-ordering",
                         strprintf("Transaction order is invalid (%s < %s)",
                                   txWitHash.ToString(),
                                   prevTxWitHash.ToString()));
                 }
+                //if (prevTxIsInput)
+                    //LogPrintf("Transaction %s with witness hash %s is an input of transaction %s with witness hash %s\n", prevTxHash.ToString(), prevTxWitHash.ToString(), tx.GetHash().ToString(), txWitHash.ToString());
+                //else
+                    //LogPrintf("Transaction %s has witness hash %s which is greater than transaction %s with witness hash %s\n", tx.GetHash().ToString(), txWitHash.ToString(), prevTxHash.ToString(), prevTxWitHash.ToString());
             }
 
             if (prevTx || (!tx.IsCoinBase() && !tx.IsCoinStake())) {
