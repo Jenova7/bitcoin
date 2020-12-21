@@ -612,7 +612,7 @@ bool CreateCoinStake(CMutableTransaction& coinstakeTx, CBlock* pblock, CWallet* 
 
                 CAmount nReward = GetBlockSubsidy(nHeight, true, nCoinAge, consensusParams);
                 // Refuse to create mint that has zero or negative reward
-                if (nReward <= 0)
+                if (nReward < 0)
                     return false;
                 nCredit += nReward;
                 coinstakeTx.vout.push_back(CTxOut(nCredit, scriptPubKeyOut));
@@ -702,6 +702,11 @@ static inline void PoSMiner(std::shared_ptr<CWallet> pwallet, ChainstateManager*
                 // Busy-wait for the network to come online so we don't waste time mining
                 // on an obsolete chain. In regtest mode we expect to fly solo.
                 while (connman == nullptr || connman->GetNodeCount(CConnman::CONNECTIONS_ALL) == 0 || ::ChainstateActive().IsInitialBlockDownload()) {
+                    if (strMintWarning != strMintSyncMessage) {
+                        strMintWarning = strMintSyncMessage;
+                        uiInterface.NotifyAlertChanged();
+                    }
+                    fNeedToClear = true;
                     if (!connman->interruptNet.sleep_for(std::chrono::seconds(10)))
                         return;
                 }
