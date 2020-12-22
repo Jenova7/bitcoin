@@ -556,7 +556,8 @@ bool CreateCoinStake(CMutableTransaction& coinstakeTx, CBlock* pblock, CWallet* 
             Coin coin;
 
             if (!view.GetCoin(prevout, coin)) {
-                LogPrintf("%s : failed to find stake input %s in UTXO set\n", __func__, pcoin.outpoint.hash.ToString());
+                if (gArgs.GetBoolArg("-debug", false))
+                    LogPrintf("%s : failed to find stake input %s in UTXO set\n", __func__, pcoin.outpoint.hash.ToString());
                 continue;
             }
 
@@ -613,7 +614,7 @@ bool CreateCoinStake(CMutableTransaction& coinstakeTx, CBlock* pblock, CWallet* 
                 CAmount nReward = GetBlockSubsidy(nHeight, true, nCoinAge, consensusParams);
                 // Refuse to create mint that has zero or negative reward
                 if (nReward < 0)
-                    return false;
+                    return error("%s : not creating mint with negative subsidy", __func__);
                 nCredit += nReward;
                 coinstakeTx.vout.push_back(CTxOut(nCredit, scriptPubKeyOut));
 
